@@ -1,0 +1,32 @@
+# RBZ files - these are built packages, not source
+*.rbz
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Ruby specific
+*.gem
+.ruby-version
+.ruby-gemset
+
+# Build artifacts
+/pkg/
+/tmp/
