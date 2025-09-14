@@ -131,6 +131,23 @@ module UniversalImporter
         # Converts source model to intermediate OBJ/MTL files with Mayo.
         MayoConv.export_model(@source_file_path, @inter_obj_file_path)
       else
+        # Check for Blender files and warn about potential compatibility issues
+        if @source_file_ext == 'blend'
+          blend_warning = UI.messagebox(
+            "WARNING: Blender (.blend) file detected.\n\n" +
+            "The included Assimp version may not support newer Blender file formats.\n" +
+            "You may encounter 'BlenderDNA: Expected TYPE field' errors.\n\n" +
+            "For best results, consider exporting from Blender to OBJ or FBX format first.\n\n" +
+            "Continue with .blend file import?",
+            MB_YESNO
+          )
+          
+          if blend_warning != IDYES
+            @processed = false
+            return
+          end
+        end
+        
         @source_importer = :assimp_cmd
         create_link_to_source_file
         convert_source_link_to_intermediate
@@ -261,7 +278,7 @@ module UniversalImporter
       Assimp.convert_model(@source_dir, @source_link_name, 'uir-inter.obj', 'uir-assimp.log')
 
       # Only process MTL file if it exists
-      if File.exist?(@inter_mtl_file_path)
+      if File.exists?(@inter_mtl_file_path)
         inter_mtl = File.read(@inter_mtl_file_path)
         # Disables transparency (d) in intermediate MTL file produced by Assimp.
         inter_mtl.gsub!("\nd ", "\n# d ")
@@ -301,7 +318,7 @@ module UniversalImporter
             textures_extracted = true
           end
 
-          if File.exist?(File.join(@temp_textures_dir, texture_reference_path))
+          if File.exists?(File.join(@temp_textures_dir, texture_reference_path))
             # Replaces the embedded texture reference with the matching extracted texture filename.
             material[:diffuse_texture] = 'uir-textures/' + texture_reference_path
           else
@@ -346,7 +363,7 @@ module UniversalImporter
           # but we don't know the file extension of the extracted texture, so we try each:
           SUPPORTED_TEXTURE_EXTS.each do |texture_extension|
 
-            if File.exist?(texture_absolute_path + '.' + texture_extension)
+            if File.exists?(texture_absolute_path + '.' + texture_extension)
               # Replaces embedded diffuse texture reference with matching texture filename.
               material[:diffuse_texture] = texture_relative_path + '.' + texture_extension
               break # Jumps to the next material.
@@ -389,7 +406,7 @@ module UniversalImporter
           texture_path_in_source_dir = File.join(@source_dir, FS.normalize_separator(texture_path))
           texture_basename = File.basename(FS.normalize_separator(texture_path))
 
-          if File.exist?(texture_path_in_source_dir)
+          if File.exists?(texture_path_in_source_dir)
             found_texture_path = texture_path_in_source_dir
           else
             texture_glob_pattern = "#{source_parent_dir}/**/#{texture_basename}"
@@ -470,7 +487,7 @@ module UniversalImporter
     # @see COLLADA.fix_materials_names
     def backup_materials_names_for_later
       # Possibly Mayo Conv doesn't output a MTL file.
-      return unless File.exist?(@inter_mtl_file_path)
+      return unless File.exists?(@inter_mtl_file_path)
 
       intermediate_mtl = MTL.new(@inter_mtl_file_path)
       # For each material in the intermediate MTL file...
@@ -529,7 +546,7 @@ module UniversalImporter
       return unless @poly_reduction_params.is_a?(Array)
 
       has_diffuse_texture = false
-      if File.exist?(@inter_mtl_file_path)
+      if File.exists?(@inter_mtl_file_path)
         inter_mtl = File.read(@inter_mtl_file_path)
         if inter_mtl.include?('map_Kd')
           has_diffuse_texture = true

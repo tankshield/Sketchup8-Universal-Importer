@@ -87,9 +87,20 @@ module UniversalImporter
 
       log_path = File.join(working_dir, log_filename)
 
-      # Check if working directory is a network path (UNC path starting with //)
-      if working_dir =~ /^\/\//
-        # For network paths, copy files to local temp directory first
+      # Check if working directory is a network path (UNC path starting with // or mapped drive letter)
+      # For Windows: UNC paths start with //, mapped drives are like Z:\
+      # For network paths, copy files to local temp directory first to avoid Assimp issues
+      is_network_path = false
+      
+      if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+        # Windows: check for UNC paths (//server/share) or mapped drives (Z:\)
+        is_network_path = (working_dir =~ /^\/\//) || (working_dir =~ /^[A-Za-z]:\\/ && working_dir =~ /^[A-Za-z]:\\[^\\]/)
+      else
+        # macOS/Linux: only UNC paths
+        is_network_path = (working_dir =~ /^\/\//)
+      end
+      
+      if is_network_path
         # Ruby 1.8.6 compatibility - Dir.tmpdir not available, use ENV['TEMP'] or ENV['TMP']
         temp_dir_base = ENV['TEMP'] || ENV['TMP'] || (RUBY_PLATFORM =~ /mswin|mingw|cygwin/ ? 'C:/Temp' : '/tmp')
         temp_dir = File.join(temp_dir_base, 'UniversalImporter')
@@ -124,6 +135,11 @@ module UniversalImporter
         
         # Copy input file to local temp directory - FileUtils replacement for SketchUp 8
         source_path = File.join(working_dir, in_filename)
+        # Check if source file exists before trying to copy
+        unless File.exists?(source_path)
+          raise StandardError.new("Source file does not exist: #{source_path}")
+        end
+        
         File.open(source_path, 'rb') do |source|
           File.open(local_in_path, 'wb') do |dest|
             dest.write(source.read)
@@ -141,7 +157,7 @@ module UniversalImporter
         
         if status == true
           # Copy output file back to network location
-          if File.exist?(local_out_path)
+          if File.exists?(local_out_path)
             File.open(local_out_path, 'rb') do |source|
               File.open(File.join(working_dir, out_filename), 'wb') do |dest|
                 dest.write(source.read)
@@ -150,7 +166,7 @@ module UniversalImporter
           end
           
           # Copy log file if it exists
-          if File.exist?(local_log_path)
+          if File.exists?(local_log_path)
             File.open(local_log_path, 'rb') do |source|
               File.open(log_path, 'wb') do |dest|
                 dest.write(source.read)
@@ -161,13 +177,30 @@ module UniversalImporter
         
         # Return the status directly since we already handled the command execution
         if status != true
-          if File.exist?(local_log_path)
+          if File.exists?(local_log_path)
             result = File.read(local_log_path)
           else
             result = 'No log available.'
           end
 
-          raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          # Check for XML parsing errors in DAE files for network paths too
+          if result.include?('malformed XML') && in_filename.downcase.end_with?('.dae')
+            enhanced_result = result + "\n\nDAE FILE XML ERROR:\n" +
+              "This Collada (.dae) file contains malformed XML that Assimp cannot parse.\n" +
+              "This is typically caused by:\n" +
+              "1. Missing or mismatched XML tags\n" +
+              "2. Invalid XML characters or encoding issues\n" +
+              "3. File corruption during export or transfer\n\n" +
+              "SOLUTIONS:\n" +
+              "1. Try re-exporting the DAE file from the original software\n" +
+              "2. Open the file in a text editor and check for XML syntax errors\n" +
+              "3. Use an XML validator tool to identify and fix issues\n" +
+              "4. Export to a different format like OBJ or FBX instead"
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
         end
         
         return status
@@ -187,13 +220,43 @@ module UniversalImporter
         if status != true
           system("#{command} > #{log_filename}")
 
-          if File.exist?(log_path)
+          if File.exists?(log_path)
             result = File.read(log_path)
           else
             result = 'No log available.'
           end
 
-          raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          # Check for specific Blender format compatibility issues
+          if result.include?('BlenderDNA: Expected TYPE field')
+            # This is a known issue with older Assimp versions and newer Blender files
+            # Provide specific guidance for Blender file issues
+            enhanced_result = result + "\n\nBLENDER FILE COMPATIBILITY ISSUE:\n" +
+              "The included Assimp version cannot read this Blender (.blend) file.\n" +
+              "This is likely because the file was created with a newer version of Blender.\n\n" +
+              "SOLUTIONS:\n" +
+              "1. Open the file in Blender and export to OBJ or FBX format instead\n" +
+              "2. Use an older version of Blender (2.7x or earlier) to export\n" +
+              "3. The file may be corrupted or use unsupported Blender features"
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          # Check for XML parsing errors in DAE files
+          elsif result.include?('malformed XML') && in_filename.downcase.end_with?('.dae')
+            enhanced_result = result + "\n\nDAE FILE XML ERROR:\n" +
+              "This Collada (.dae) file contains malformed XML that Assimp cannot parse.\n" +
+              "This is typically caused by:\n" +
+              "1. Missing or mismatched XML tags\n" +
+              "2. Invalid XML characters or encoding issues\n" +
+              "3. File corruption during export or transfer\n\n" +
+              "SOLUTIONS:\n" +
+              "1. Try re-exporting the DAE file from the original software\n" +
+              "2. Open the file in a text editor and check for XML syntax errors\n" +
+              "3. Use an XML validator tool to identify and fix issues\n" +
+              "4. Export to a different format like OBJ or FBX instead"
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
         end
       end
 
@@ -215,27 +278,116 @@ module UniversalImporter
 
       log_path = File.join(working_dir, log_filename)
 
-      # Use full paths instead of changing directories - better for network paths
-      full_in_path = File.join(working_dir, in_filename)
-
-      # Escapes paths with double quotes, since they can contain spaces.
-      full_in_path = '"' + full_in_path + '"'
-
-      # Use full paths to avoid directory changing issues with network paths
-      command = "#{exe} extract #{full_in_path}"
-
-      status = system(command)
-
-      if status != true
-        system("#{command} > #{log_filename}")
-
-        if File.exist?(log_path)
-          result = File.read(log_path) 
-        else
-          result = 'No log available.'
+      # Check if working directory is a network path (UNC path starting with // or mapped drive letter)
+      is_network_path = false
+      
+      if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+        # Windows: check for UNC paths (//server/share) or mapped drives (Z:\)
+        is_network_path = (working_dir =~ /^\/\//) || (working_dir =~ /^[A-Za-z]:\\/ && working_dir =~ /^[A-Za-z]:\\[^\\]/)
+      else
+        # macOS/Linux: only UNC paths
+        is_network_path = (working_dir =~ /^\/\//)
+      end
+      
+      if is_network_path
+        # For network paths, copy files to local temp directory first
+        temp_dir_base = ENV['TEMP'] || ENV['TMP'] || (RUBY_PLATFORM =~ /mswin|mingw|cygwin/ ? 'C:/Temp' : '/tmp')
+        temp_dir = File.join(temp_dir_base, 'UniversalImporter')
+        if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+          temp_dir.gsub!('/', '\\')
         end
+        
+        # Create directory recursively
+        if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+          parts = temp_dir.split('\\')
+        else
+          parts = temp_dir.split('/')
+        end
+        
+        current_path = ''
+        parts.each do |part|
+          next if part.empty?
+          current_path = File.join(current_path, part)
+          if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+            current_path.gsub!('/', '\\')
+          end
+          Dir.mkdir(current_path) unless File.exists?(current_path)
+        end
+        
+        local_in_path = File.join(temp_dir, in_filename)
+        local_log_path = File.join(temp_dir, log_filename)
+        
+        # Copy input file to local temp directory
+        source_path = File.join(working_dir, in_filename)
+        unless File.exists?(source_path)
+          raise StandardError.new("Source file does not exist: #{source_path}")
+        end
+        
+        File.open(source_path, 'rb') do |source|
+          File.open(local_in_path, 'wb') do |dest|
+            dest.write(source.read)
+          end
+        end
+        
+        # Escape paths with double quotes
+        local_in_path = '"' + local_in_path + '"'
+        
+        command = "#{exe} extract #{local_in_path}"
+        
+        status = system(command)
+        
+        if status != true
+          system("#{command} > #{local_log_path}")
+          
+          if File.exists?(local_log_path)
+            result = File.read(local_log_path)
+          else
+            result = 'No log available.'
+          end
 
-        raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          # Check for specific Blender format compatibility issues
+          if result.include?('BlenderDNA: Expected TYPE field')
+            enhanced_result = result + "\n\nBLENDER FILE COMPATIBILITY ISSUE DETECTED\n" +
+              "The Assimp library cannot read this Blender file format.\n" +
+              "Please try exporting from Blender to OBJ or FBX format first."
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
+        end
+      else
+        # Use full paths instead of changing directories - better for network paths
+        full_in_path = File.join(working_dir, in_filename)
+
+        # Escapes paths with double quotes, since they can contain spaces.
+        full_in_path = '"' + full_in_path + '"'
+
+        # Use full paths to avoid directory changing issues with network paths
+        command = "#{exe} extract #{full_in_path}"
+
+        status = system(command)
+
+        if status != true
+          system("#{command} > #{log_filename}")
+
+          if File.exists?(log_path)
+            result = File.read(log_path)
+          else
+            result = 'No log available.'
+          end
+
+          # Check for specific Blender format compatibility issues
+          if result.include?('BlenderDNA: Expected TYPE field')
+            enhanced_result = result + "\n\nBLENDER FILE COMPATIBILITY ISSUE DETECTED\n" +
+              "The Assimp library cannot read this Blender file format.\n" +
+              "Please try exporting from Blender to OBJ or FBX format first."
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
+        end
       end
 
     end
@@ -258,31 +410,119 @@ module UniversalImporter
 
       log_path = File.join(working_dir, log_filename)
 
-      # Use full paths instead of changing directories - better for network paths
-      full_in_path = File.join(working_dir, in_filename)
-
-      # Escapes paths with double quotes, since they can contain spaces.
-      full_in_path = '"' + full_in_path + '"'
-      log_filename = '"' + log_filename + '"'
-
+      # Check if working directory is a network path (UNC path starting with // or mapped drive letter)
+      is_network_path = false
+      
+      if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+        # Windows: check for UNC paths (//server/share) or mapped drives (Z:\)
+        is_network_path = (working_dir =~ /^\/\//) || (working_dir =~ /^[A-Za-z]:\\/ && working_dir =~ /^[A-Za-z]:\\[^\\]/)
+      else
+        # macOS/Linux: only UNC paths
+        is_network_path = (working_dir =~ /^\/\//)
+      end
+      
       texture_refs = []
-
-      # Use full paths to avoid directory changing issues with network paths
-      command = "#{exe} info #{full_in_path} > #{log_filename}"
-
-      status = system(command)
-
-      if status != true
-        if File.exist?(log_path)
-          result = File.read(log_path) 
+      
+      if is_network_path
+        # For network paths, copy files to local temp directory first
+        temp_dir_base = ENV['TEMP'] || ENV['TMP'] || (RUBY_PLATFORM =~ /mswin|mingw|cygwin/ ? 'C:/Temp' : '/tmp')
+        temp_dir = File.join(temp_dir_base, 'UniversalImporter')
+        if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+          temp_dir.gsub!('/', '\\')
+        end
+        
+        # Create directory recursively
+        if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+          parts = temp_dir.split('\\')
         else
-          result = 'No log available.'
+          parts = temp_dir.split('/')
+        end
+        
+        current_path = ''
+        parts.each do |part|
+          next if part.empty?
+          current_path = File.join(current_path, part)
+          if RUBY_PLATFORM =~ /mswin|mingw|cygwin/
+            current_path.gsub!('/', '\\')
+          end
+          Dir.mkdir(current_path) unless File.exists?(current_path)
+        end
+        
+        local_in_path = File.join(temp_dir, in_filename)
+        local_log_path = File.join(temp_dir, log_filename)
+        
+        # Copy input file to local temp directory
+        source_path = File.join(working_dir, in_filename)
+        unless File.exists?(source_path)
+          raise StandardError.new("Source file does not exist: #{source_path}")
+        end
+        
+        File.open(source_path, 'rb') do |source|
+          File.open(local_in_path, 'wb') do |dest|
+            dest.write(source.read)
+          end
+        end
+        
+        # Escape paths with double quotes
+        local_in_path = '"' + local_in_path + '"'
+        local_log_filename = '"' + File.basename(local_log_path) + '"'
+
+        command = "#{exe} info #{local_in_path} > #{local_log_filename}"
+
+        status = system(command)
+
+        if status != true
+          if File.exists?(local_log_path)
+            result = File.read(local_log_path)
+          else
+            result = 'No log available.'
+          end
+
+          # Check for specific Blender format compatibility issues
+          if result.include?('BlenderDNA: Expected TYPE field')
+            enhanced_result = result + "\n\nBLENDER FILE FORMAT ISSUE\n" +
+              "Unable to extract textures due to Blender file format incompatibility."
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
         end
 
-        raise StandardError.new('Command failed: ' + command + "\n\n" + result)
-      end
+        info = File.read(local_log_path)
+      else
+        # Use full paths instead of changing directories - better for network paths
+        full_in_path = File.join(working_dir, in_filename)
 
-      info = File.read(log_path)
+        # Escapes paths with double quotes, since they can contain spaces.
+        full_in_path = '"' + full_in_path + '"'
+        log_filename = '"' + log_filename + '"'
+
+        # Use full paths to avoid directory changing issues with network paths
+        command = "#{exe} info #{full_in_path} > #{log_filename}"
+
+        status = system(command)
+
+        if status != true
+          if File.exists?(log_path)
+            result = File.read(log_path)
+          else
+            result = 'No log available.'
+          end
+
+          # Check for specific Blender format compatibility issues
+          if result.include?('BlenderDNA: Expected TYPE field')
+            enhanced_result = result + "\n\nBLENDER FILE FORMAT ISSUE\n" +
+              "Unable to extract textures due to Blender file format incompatibility."
+            
+            raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
+          else
+            raise StandardError.new('Command failed: ' + command + "\n\n" + result)
+          end
+        end
+
+        info = File.read(log_path)
+      end
 
       if info.include?('Texture Refs:')
 
@@ -331,7 +571,7 @@ module UniversalImporter
       log_path = File.join(working_dir, log_filename)
 
       raise "Can't get model face count because following file doesn't exist: #{log_path}"\
-        unless File.exist?(log_path)
+        unless File.exists?(log_path)
 
       face_count = 0
       info = File.read(log_path)

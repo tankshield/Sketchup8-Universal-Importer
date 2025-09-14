@@ -27,7 +27,7 @@ module UniversalImporter
     # Increments "imports.count" file.
     def self.increment_counter
       # File.write replacement for SketchUp 8 compatibility
-      unless File.exist?(@@count_file)
+      unless File.exists?(@@count_file)
         File.open(@@count_file, 'w') { |f| f.write('0') }
       end
       counter = File.read(@@count_file).to_i
@@ -40,7 +40,7 @@ module UniversalImporter
     # Gets imports count.
     # @return [Integer]
     def self.count
-      return 0 unless File.exist?(@@count_file)
+      return 0 unless File.exists?(@@count_file)
 
       File.read(@@count_file).to_i
     end

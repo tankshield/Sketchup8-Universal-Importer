@@ -22,7 +22,7 @@ require 'sketchup'
 # Universal Importer plugin namespace.
 module UniversalImporter
 
-  VERSION = '1.2.6'
+  VERSION = '0.9.5'
 
   # SketchUp 8 compatibility - simple translation fallback
   PLUGIN_NAME = 'Universal Importer'

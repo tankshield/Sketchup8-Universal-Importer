@@ -138,8 +138,8 @@ module UniversalImporter
 
         log_path = File.join(working_dir, log_filename)
 
-        if File.exist?(log_path)
-          result = File.read(log_path) 
+        if File.exists?(log_path)
+          result = File.read(log_path)
         else
           result = 'No log available.'
         end
