@@ -14,7 +14,7 @@
 
 # require 'fileutils' # Removed for SketchUp 8 compatibility
 require 'sketchup'
-require 'universal_importer/poly_reduction'
+require 'poly_reduction'
 
 # Universal Importer plugin namespace.
 module UniversalImporter

@@ -14,10 +14,10 @@
 
 require 'sketchup'
 # require 'fileutils' # Removed for SketchUp 8 compatibility
-require 'universal_importer/assimp'
-require 'universal_importer/mtl'
-require 'universal_importer/meshlab'
-require 'universal_importer/collada'
+require 'assimp'
+require 'mtl'
+require 'meshlab'
+require 'collada'
 
 # Universal Importer plugin namespace.
 module UniversalImporter

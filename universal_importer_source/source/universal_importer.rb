@@ -24,39 +24,10 @@ module UniversalImporter
 
   VERSION = '0.9.5'
 
-  # SketchUp 8 compatibility - simple translation fallback
-  PLUGIN_NAME = 'Universal Importer'
-  
-  # Simple translation hash for SketchUp 8 compatibility
-  TRANSLATE = {
-    'Import with' => 'Import with',
-    'Import a 3D Model...' => 'Import a 3D Model...',
-    'Propose Polygon Reduction' => 'Propose Polygon Reduction',
-    'Claim Missing Textures' => 'Claim Missing Textures',
-    'Select a 3D Model' => 'Select a 3D Model',
-    '3D Models' => '3D Models',
-    'Source model units' => 'Source model units',
-    'Scaling' => 'Scaling',
-    'Select a Texture for Material:' => 'Select a Texture for Material:',
-    'Images' => 'Images',
-    'Model has' => 'Model has',
-    'faces' => 'faces',
-    'Reduce polygon count?' => 'Reduce polygon count?',
-    'Target face number' => 'Target face number',
-    'Polygon Reduction' => 'Polygon Reduction',
-    'Selection must be empty!' => 'Selection must be empty!',
-    'Current face count:' => 'Current face count:',
-    'Face count before reduction:' => 'Face count before reduction:',
-    'Face count after reduction:' => 'Face count after reduction:',
-    'Reduce Polygon Count...' => 'Reduce Polygon Count...',
-    'Rotate Component' => 'Rotate Component',
-    'Change Component Units' => 'Change Component Units',
-  }
-
   # SketchUp 8 compatibility - direct loading instead of extension registration
   # In SketchUp 8, we need to load the plugin directly
   begin
-    require 'universal_importer/load'
+    require 'load'
   rescue LoadError => e
     # Show error message in SketchUp 8 (puts won't be visible)
     UI.messagebox("Universal Importer Plugin Error: #{e.message}\n\nPlease check the plugin installation.")

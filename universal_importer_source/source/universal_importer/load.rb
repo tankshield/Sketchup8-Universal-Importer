@@ -13,16 +13,44 @@
 # Get a copy of the GPL here: https://www.gnu.org/licenses/gpl.html
 
 require 'sketchup'
-require 'universal_importer/mayo_conv'
-require 'universal_importer/assimp'
-require 'universal_importer/meshlab'
-require 'universal_importer/app_observer'
-require 'universal_importer/model_observer'
-require 'universal_importer/menu'
-require 'universal_importer/toolbar'
+
+# SketchUp UI constants for compatibility with SketchUp 8
+MB_YESNO = 4 unless defined?(MB_YESNO)
+IDYES = 6 unless defined?(IDYES)
+MF_CHECKED = 1 unless defined?(MF_CHECKED)
+MF_UNCHECKED = 0 unless defined?(MF_UNCHECKED)
 
 # Universal Importer plugin namespace.
 module UniversalImporter
+  
+  # Plugin name constant
+  PLUGIN_NAME = 'Universal Importer'
+  
+  # Simple translation hash for SketchUp 8 compatibility
+  TRANSLATE = {
+    'Import with' => 'Import with',
+    'Import a 3D Model...' => 'Import a 3D Model...',
+    'Propose Polygon Reduction' => 'Propose Polygon Reduction',
+    'Claim Missing Textures' => 'Claim Missing Textures',
+    'Select a 3D Model' => 'Select a 3D Model',
+    '3D Models' => '3D Models',
+    'Source model units' => 'Source model units',
+    'Scaling' => 'Scaling',
+    'Select a Texture for Material:' => 'Select a Texture for Material:',
+    'Images' => 'Images',
+    'Model has' => 'Model has',
+    'faces' => 'faces',
+    'Reduce polygon count?' => 'Reduce polygon count?',
+    'Target face number' => 'Target face number',
+    'Polygon Reduction' => 'Polygon Reduction',
+    'Selection must be empty!' => 'Selection must be empty!',
+    'Current face count:' => 'Current face count:',
+    'Face count before reduction:' => 'Face count before reduction:',
+    'Face count after reduction:' => 'Face count after reduction:',
+    'Reduce Polygon Count...' => 'Reduce Polygon Count...',
+    'Rotate Component' => 'Rotate Component',
+    'Change Component Units' => 'Change Component Units',
+  }
 
   # Platform detection for Ruby 1.8.6 compatibility
   def self.platform
@@ -36,20 +64,28 @@ module UniversalImporter
     end
   end
 
-  MayoConv.set_executable_path
-
-  if self.platform == :platform_osx
-    Assimp.ensure_executable
-    MeshLab.ensure_executable
-  end
-
-  Sketchup.add_observer(AppObserver.new)
-  Sketchup.active_model.add_observer(ModelObserver.new)
-
-  Menu.add
-  Toolbar.new.prepare.show
-
-
-  # Load complete.
-
 end
+
+require 'mayo_conv'
+require 'assimp'
+require 'meshlab'
+require 'app_observer'
+require 'model_observer'
+require 'menu'
+require 'toolbar'
+
+UniversalImporter::MayoConv.set_executable_path
+
+if UniversalImporter.platform == :platform_osx
+  UniversalImporter::Assimp.ensure_executable
+  UniversalImporter::MeshLab.ensure_executable
+end
+
+Sketchup.add_observer(UniversalImporter::AppObserver.new)
+Sketchup.active_model.add_observer(UniversalImporter::ModelObserver.new)
+
+UniversalImporter::Menu.add
+UniversalImporter::Toolbar.new.prepare.show
+
+
+# Load complete.

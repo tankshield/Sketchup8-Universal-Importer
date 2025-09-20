@@ -13,11 +13,11 @@
 # Get a copy of the GPL here: https://www.gnu.org/licenses/gpl.html
 
 require 'sketchup'
-require 'universal_importer/import'
-require 'universal_importer/orientation'
-require 'universal_importer/units'
-require 'universal_importer/collada'
-require 'universal_importer/poly_reduction'
+require 'import'
+require 'orientation'
+require 'units'
+require 'collada'
+require 'poly_reduction'
 
 # Universal Importer plugin namespace.
 module UniversalImporter

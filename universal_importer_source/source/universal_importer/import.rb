@@ -14,15 +14,15 @@
 
 require 'sketchup'
 # require 'fileutils' # Removed for SketchUp 8 compatibility
-require 'universal_importer/units'
-require 'universal_importer/mayo_conv'
-require 'universal_importer/fs'
-require 'universal_importer/assimp'
-require 'universal_importer/mtl'
-require 'universal_importer/unzip'
-require 'universal_importer/meshlab'
-require 'universal_importer/collada'
-require 'universal_importer/imports'
+require 'units'
+require 'mayo_conv'
+require 'fs'
+require 'assimp'
+require 'mtl'
+require 'unzip'
+require 'meshlab'
+require 'collada'
+require 'imports'
 
 # Universal Importer plugin namespace.
 module UniversalImporter
@@ -647,7 +647,12 @@ module UniversalImporter
       temp_files_pattern += '/uir-*'
 
       Dir.glob(temp_files_pattern) do |temp_file_path|
-        File.delete(temp_file_path)
+        begin
+          File.delete(temp_file_path) if File.exists?(temp_file_path)
+        rescue Errno::EACCES, Errno::EPERM => e
+          # Skip files that can't be deleted due to permission issues
+          # This prevents the "Permission denied" error from breaking the cleanup process
+        end
       end
 
     end

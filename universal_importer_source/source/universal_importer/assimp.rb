@@ -184,7 +184,9 @@ module UniversalImporter
           end
 
           # Check for XML parsing errors in DAE files for network paths too
-          if result.include?('malformed XML') && in_filename.downcase.end_with?('.dae')
+          # Ruby 1.8.6 compatible end_with? replacement
+          is_dae_file = in_filename.length >= 4 && in_filename.downcase[in_filename.length-4, 4] == '.dae'
+          if result.include?('malformed XML') && is_dae_file
             enhanced_result = result + "\n\nDAE FILE XML ERROR:\n" +
               "This Collada (.dae) file contains malformed XML that Assimp cannot parse.\n" +
               "This is typically caused by:\n" +
@@ -240,7 +242,9 @@ module UniversalImporter
             
             raise StandardError.new('Command failed: ' + command + "\n\n" + enhanced_result)
           # Check for XML parsing errors in DAE files
-          elsif result.include?('malformed XML') && in_filename.downcase.end_with?('.dae')
+          # Ruby 1.8.6 compatible end_with? replacement
+          is_dae_file = in_filename.length >= 4 && in_filename.downcase[in_filename.length-4, 4] == '.dae'
+          elsif result.include?('malformed XML') && is_dae_file
             enhanced_result = result + "\n\nDAE FILE XML ERROR:\n" +
               "This Collada (.dae) file contains malformed XML that Assimp cannot parse.\n" +
               "This is typically caused by:\n" +

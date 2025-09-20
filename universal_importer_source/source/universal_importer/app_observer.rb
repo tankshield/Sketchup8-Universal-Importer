@@ -13,7 +13,7 @@
 # Get a copy of the GPL here: https://www.gnu.org/licenses/gpl.html
 
 require 'sketchup'
-require 'universal_importer/model_observer'
+require 'model_observer'
 
 # Universal Importer plugin namespace.
 module UniversalImporter
